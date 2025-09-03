@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Phone Camera Sender</title>
+    <style>
+        body {
+            font-family: sans-serif;
+            padding: 20px;
+            text-align: center;
+        }
+
+        video {
+            width: 90%;
+            max-width: 400px;
+            margin: 10px 0;
+            border: 2px solid #333;
+            border-radius: 8px;
+        }
+
+        #my-id {
+            font-weight: bold;
+            margin: 10px 0;
+        }
+    </style>
+</head>
+
+<body>
+    <h2>📱 Phone Camera</h2>
+    <p>Your Peer ID:</p>
+    <div id="my-id">Loading...</div>
+    <video id="localVideo" autoplay playsinline muted></video>
+    <button id="startBtn">Send Video</button>
+
+    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+    <script>
+        const myIdDiv = document.getElementById("my-id");
+        const localVideo = document.getElementById("localVideo");
+        const startBtn = document.getElementById("startBtn");
+        let connectedPeerId = null;
+
+        startBtn.onclick = () => {
+            if (connectedPeerId && localStream) {
+                // The laptop initiates the data connection, so the phone calls the laptop back with the media stream.
+                const mediaCall = peer.call(connectedPeerId, localStream);
+                console.log("Calling peer:", connectedPeerId);
+                myIdDiv.textContent = "Calling... " + connectedPeerId;
+            } else {
+                myIdDiv.textContent = "No laptop connected yet. Waiting...";
+            }
+        };
+
+        let localStream = null;
+        let peer = null;
+
+        async function init() {
+            try {
+                // Get camera
+                localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+                localVideo.srcObject = localStream;
+
+                // Get ICE servers
+                const response = await fetch("https://ahmed0saber.metered.live/api/v1/turn/credentials?apiKey=d9de385a43810895240e9abce6377e2684df");
+                const iceServers = await response.json();
+
+                // Init PeerJS
+                peer = new Peer({ config: { iceServers } });
+
+                peer.on("open", id => {
+                    myIdDiv.textContent = id;
+                });
+
+                // Handle incoming data connection from laptop
+                peer.on("connection", conn => {
+                    connectedPeerId = conn.peer;
+                    myIdDiv.textContent = `Connected to: ${connectedPeerId}. Press 'Send Video' to start streaming.`;
+                    console.log("Received data connection from:", connectedPeerId);
+                });
+
+                // Catch any PeerJS errors
+                peer.on("error", err => {
+                    console.error("PeerJS error:", err);
+                    myIdDiv.textContent = "PeerJS error: " + err.message;
+                });
+
+            } catch (err) {
+                myIdDiv.textContent = "Camera error: " + err.message;
+            }
+        }
+
+        init();
+    </script>
+</body>
+
+</html>
